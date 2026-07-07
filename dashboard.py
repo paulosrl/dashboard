@@ -43,26 +43,47 @@ st.set_page_config(
 
 PASTA = Path(__file__).parent
 CORES = px.colors.qualitative.Set2
-COR_PRINCIPAL = "#B01C2E"
+COR_PRINCIPAL = "#7A0C1B"  # vermelho escuro institucional
 COR_SECUNDARIA = "#1f6f8b"
 
 st.markdown(
     """
     <style>
-    .titulo-mppa {
+    .cabecalho-mppa {
+        background: linear-gradient(135deg, #7A0C1B 0%, #4A0710 100%);
+        border-radius: 10px;
+        padding: 0.9rem 1.1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;       /* alinhamento vertical */
+        gap: 1rem;
+        min-height: 84px;
+    }
+    .logo-mppa {
+        width: clamp(52px, 8vw, 72px);
+        height: auto;
+        flex-shrink: 0;
+    }
+    .textos-mppa {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;   /* centraliza verticalmente */
+        flex: 1;
         text-align: center;
-        font-size: clamp(1.15rem, 3.5vw, 1.9rem);
+    }
+    .titulo-mppa {
+        font-size: clamp(1.05rem, 3.2vw, 1.7rem);
         font-weight: 700;
-        color: #B01C2E;
-        margin-bottom: 0;
-        line-height: 1.25;
+        color: #FFFFFF;
+        margin: 0;
+        line-height: 1.3;
     }
     .subtitulo-mppa {
-        text-align: center;
-        font-size: clamp(0.9rem, 2.5vw, 1.2rem);
-        color: #555;
-        margin-top: 0.25rem;
-        margin-bottom: 0.75rem;
+        font-size: clamp(0.78rem, 2vw, 1rem);
+        font-weight: 400;
+        color: #F2D9DD;
+        margin: 0.25rem 0 0 0;
+        line-height: 1.2;
     }
     .stTabs [data-baseweb="tab-list"] {
         overflow-x: auto;
@@ -81,12 +102,28 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+def _logo_base64():
+    """Procura logo.png (ou .jpg/.jpeg) na pasta e devolve tag <img> em base64."""
+    import base64
+    for nome in ("logo.png", "logo.jpg", "logo.jpeg"):
+        arq = PASTA / nome
+        if arq.exists():
+            mime = "png" if nome.endswith("png") else "jpeg"
+            b64 = base64.b64encode(arq.read_bytes()).decode()
+            return f'<img class="logo-mppa" src="data:image/{mime};base64,{b64}" alt="Logo CiiA/MPPA">'
+    return ""
+
+
 st.markdown(
+    '<div class="cabecalho-mppa">'
+    + _logo_base64() +
+    '<div class="textos-mppa">'
     '<p class="titulo-mppa">Comitê de Inovação e Inteligência Artificial do MPPA</p>'
-    '<p class="subtitulo-mppa">Estatística de uso do Microsoft Copilot</p>',
+    '<p class="subtitulo-mppa">Estatística de uso do Microsoft Copilot</p>'
+    '</div>'
+    '</div>',
     unsafe_allow_html=True,
 )
-st.divider()
 
 # ----------------------------------------------------------------------------
 # Utilitários (formatos pt-BR)
@@ -557,5 +594,5 @@ with abas[4]:
         tabela(df, "copilot")
 
 st.divider()
-st.caption("Dashboard gerado para o Comitê de Inovação e Inteligência Artificial do MPPA · "
-           "Dados extraídos dos relatórios de uso do Microsoft Copilot.")
+st.caption("Dados extraídos dos relatórios de uso do Microsoft Copilot.")
+# fim
