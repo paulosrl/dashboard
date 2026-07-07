@@ -49,27 +49,29 @@ COR_SECUNDARIA = "#1f6f8b"
 st.markdown(
     """
     <style>
-    /* Layout de tabela: vertical-align middle é imune aos estilos do Streamlit */
+    /* Layout flex: alinhamento vertical robusto, imune aos estilos do Streamlit */
     .cabecalho-mppa {
-        display: table !important;
-        table-layout: fixed;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center;
         width: 100%;
         background: linear-gradient(135deg, #6E0B18 0%, #43060E 100%);
         border-radius: 10px;
         margin-bottom: 1rem;
-        height: 96px;
+        min-height: 96px;
+        padding: 10px 18px;
+        gap: 18px;
     }
     .cel-logo-mppa {
-        display: table-cell !important;
-        vertical-align: middle !important;
-        width: 96px;
-        padding: 0 0 0 18px;
+        display: flex !important;
+        align-items: center !important;
+        flex-shrink: 0;
     }
     .cel-texto-mppa {
-        display: table-cell !important;
-        vertical-align: middle !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
         text-align: center;
-        padding: 8px 96px 8px 0;  /* compensa a largura da célula da logo */
     }
     .logo-mppa {
         width: 64px !important;
@@ -96,9 +98,7 @@ st.markdown(
         line-height: 1.2;
     }
     @media (max-width: 640px) {
-        .cabecalho-mppa { height: 80px; }
-        .cel-logo-mppa { width: 62px; padding-left: 10px; }
-        .cel-texto-mppa { padding: 6px 10px 6px 0; }
+        .cabecalho-mppa { min-height: 80px; padding: 8px 10px; gap: 10px; }
         .logo-mppa { width: 46px !important; height: 46px !important; }
     }
     .stTabs [data-baseweb="tab-list"] {
