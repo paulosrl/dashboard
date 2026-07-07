@@ -49,57 +49,10 @@ COR_SECUNDARIA = "#1f6f8b"
 st.markdown(
     """
     <style>
-    /* Layout flex: alinhamento vertical robusto, imune aos estilos do Streamlit */
-    .cabecalho-mppa {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center;
-        width: 100%;
-        background: linear-gradient(135deg, #6E0B18 0%, #43060E 100%);
-        border-radius: 10px;
-        margin-bottom: 1rem;
-        min-height: 96px;
-        padding: 10px 18px;
-        gap: 18px;
-    }
-    .cel-logo-mppa {
-        display: flex !important;
-        align-items: center !important;
-        flex-shrink: 0;
-    }
-    .cel-texto-mppa {
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-        text-align: center;
-    }
-    .logo-mppa {
-        width: 64px !important;
-        height: 64px !important;
-        max-width: none !important;
-        object-fit: contain;
-        display: block !important;
-        margin: 0 !important;
-    }
-    .titulo-mppa {
-        font-size: clamp(1.05rem, 3.2vw, 1.7rem);
-        font-weight: 700;
-        color: #FFFFFF !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1.3;
-    }
-    .subtitulo-mppa {
-        font-size: clamp(0.78rem, 2vw, 1rem);
-        font-weight: 400;
-        color: #EFD5D9 !important;
-        margin: 4px 0 0 0 !important;
-        padding: 0 !important;
-        line-height: 1.2;
-    }
+    /* Header: estilo aplicado inline no HTML (evita qualquer conflito de cascata) */
     @media (max-width: 640px) {
-        .cabecalho-mppa { min-height: 80px; padding: 8px 10px; gap: 10px; }
         .logo-mppa { width: 46px !important; height: 46px !important; }
+        .cabecalho-mppa { padding: 8px 10px !important; gap: 10px !important; }
     }
     .stTabs [data-baseweb="tab-list"] {
         overflow-x: auto;
@@ -126,16 +79,24 @@ def _logo_base64():
         if arq.exists():
             mime = "png" if nome.endswith("png") else "jpeg"
             b64 = base64.b64encode(arq.read_bytes()).decode()
-            return f'<img class="logo-mppa" src="data:image/{mime};base64,{b64}" alt="Logo CiiA/MPPA">'
+            return (
+                '<img class="logo-mppa" '
+                'style="width:64px;height:64px;object-fit:contain;display:block;margin:0;" '
+                f'src="data:image/{mime};base64,{b64}" alt="Logo CiiA/MPPA">'
+            )
     return ""
 
 
 st.markdown(
-    '<div class="cabecalho-mppa">'
-    '<div class="cel-logo-mppa">' + _logo_base64() + '</div>'
-    '<div class="cel-texto-mppa">'
-    '<p class="titulo-mppa">Comitê de Inovação e Inteligência Artificial do MPPA</p>'
-    '<p class="subtitulo-mppa">Estatística de uso do Microsoft Copilot</p>'
+    '<div class="cabecalho-mppa" style="display:flex;align-items:center;justify-content:center;'
+    'width:100%;background:linear-gradient(135deg,#6E0B18 0%,#43060E 100%);border-radius:10px;'
+    'margin-bottom:1rem;padding:14px 18px;gap:18px;">'
+    '<div style="display:flex;align-items:center;flex-shrink:0;">' + _logo_base64() + '</div>'
+    '<div style="display:flex;flex-direction:column;justify-content:center;text-align:center;">'
+    '<p style="font-size:clamp(1.05rem,3.2vw,1.7rem);font-weight:700;color:#FFFFFF;margin:0;'
+    'line-height:1.3;">Comitê de Inovação e Inteligência Artificial do MPPA</p>'
+    '<p style="font-size:clamp(0.78rem,2vw,1rem);font-weight:400;color:#EFD5D9;margin:4px 0 0 0;'
+    'line-height:1.2;">Estatística de uso do Microsoft Copilot</p>'
     '</div>'
     '</div>',
     unsafe_allow_html=True,
