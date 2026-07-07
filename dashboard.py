@@ -116,9 +116,9 @@ st.markdown(
 )
 
 def _logo_base64():
-    """Procura logo.png (ou .jpg/.jpeg) na pasta e devolve tag <img> em base64."""
+    """Procura ciia.png (ou .jpg/.jpeg) na pasta e devolve tag <img> em base64."""
     import base64
-    for nome in ("logo.png", "logo.jpg", "logo.jpeg"):
+    for nome in ("ciia.png", "ciia.jpg", "ciia.jpeg"):
         arq = PASTA / nome
         if arq.exists():
             mime = "png" if nome.endswith("png") else "jpeg"
