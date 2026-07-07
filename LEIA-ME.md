@@ -21,7 +21,7 @@ Pronto. O uv cria o ambiente e instala as dependências automaticamente
 (estão declaradas dentro do próprio `dashboard.py`, no cabeçalho PEP 723 —
 não é preciso pip nem requirements).
 
-O navegador abre em `http://localhost:8501`.
+O navegador abre em `http://locYalhost:8501`.
 Para acessar do celular na mesma rede: `http://SEU-IP:8501`.
 
 Alternativa equivalente:
