@@ -43,47 +43,60 @@ st.set_page_config(
 
 PASTA = Path(__file__).parent
 CORES = px.colors.qualitative.Set2
-COR_PRINCIPAL = "#7A0C1B"  # vermelho escuro institucional
+COR_PRINCIPAL = "#6E0B18"  # vermelho escuro institucional
 COR_SECUNDARIA = "#1f6f8b"
 
 st.markdown(
     """
     <style>
     .cabecalho-mppa {
-        background: linear-gradient(135deg, #7A0C1B 0%, #4A0710 100%);
+        background: linear-gradient(135deg, #6E0B18 0%, #43060E 100%);
         border-radius: 10px;
-        padding: 0.9rem 1.1rem;
+        padding: 16px 20px !important;
         margin-bottom: 1rem;
-        display: flex;
-        align-items: center;       /* alinhamento vertical */
-        gap: 1rem;
-        min-height: 84px;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;   /* centraliza tudo na vertical */
+        gap: 18px;
+        overflow: visible;
     }
+    .cabecalho-mppa p { margin: 0 !important; padding: 0 !important; }
     .logo-mppa {
-        width: clamp(52px, 8vw, 72px);
-        height: auto;
+        width: 64px !important;
+        height: 64px !important;
+        object-fit: contain;
+        display: block !important;
+        margin: 0 !important;
         flex-shrink: 0;
+        align-self: center !important;
     }
     .textos-mppa {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;   /* centraliza verticalmente */
         flex: 1;
-        text-align: center;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;  /* centro vertical */
+        align-items: center !important;      /* centro horizontal */
+        min-height: 64px;
     }
     .titulo-mppa {
         font-size: clamp(1.05rem, 3.2vw, 1.7rem);
         font-weight: 700;
-        color: #FFFFFF;
-        margin: 0;
+        color: #FFFFFF !important;
+        margin: 0 !important;
         line-height: 1.3;
+        text-align: center;
     }
     .subtitulo-mppa {
         font-size: clamp(0.78rem, 2vw, 1rem);
         font-weight: 400;
-        color: #F2D9DD;
-        margin: 0.25rem 0 0 0;
+        color: #EFD5D9 !important;
+        margin: 4px 0 0 0 !important;
         line-height: 1.2;
+        text-align: center;
+    }
+    @media (max-width: 480px) {
+        .logo-mppa { width: 48px !important; height: 48px !important; }
+        .cabecalho-mppa { gap: 12px; padding: 12px 14px !important; }
     }
     .stTabs [data-baseweb="tab-list"] {
         overflow-x: auto;
