@@ -49,54 +49,57 @@ COR_SECUNDARIA = "#1f6f8b"
 st.markdown(
     """
     <style>
+    /* Layout de tabela: vertical-align middle é imune aos estilos do Streamlit */
     .cabecalho-mppa {
+        display: table !important;
+        table-layout: fixed;
+        width: 100%;
         background: linear-gradient(135deg, #6E0B18 0%, #43060E 100%);
         border-radius: 10px;
-        padding: 16px 20px !important;
         margin-bottom: 1rem;
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;   /* centraliza tudo na vertical */
-        gap: 18px;
-        overflow: visible;
+        height: 96px;
     }
-    .cabecalho-mppa p { margin: 0 !important; padding: 0 !important; }
+    .cel-logo-mppa {
+        display: table-cell !important;
+        vertical-align: middle !important;
+        width: 96px;
+        padding: 0 0 0 18px;
+    }
+    .cel-texto-mppa {
+        display: table-cell !important;
+        vertical-align: middle !important;
+        text-align: center;
+        padding: 8px 96px 8px 0;  /* compensa a largura da célula da logo */
+    }
     .logo-mppa {
         width: 64px !important;
         height: 64px !important;
+        max-width: none !important;
         object-fit: contain;
         display: block !important;
         margin: 0 !important;
-        flex-shrink: 0;
-        align-self: center !important;
-    }
-    .textos-mppa {
-        flex: 1;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;  /* centro vertical */
-        align-items: center !important;      /* centro horizontal */
-        min-height: 64px;
     }
     .titulo-mppa {
         font-size: clamp(1.05rem, 3.2vw, 1.7rem);
         font-weight: 700;
         color: #FFFFFF !important;
         margin: 0 !important;
+        padding: 0 !important;
         line-height: 1.3;
-        text-align: center;
     }
     .subtitulo-mppa {
         font-size: clamp(0.78rem, 2vw, 1rem);
         font-weight: 400;
         color: #EFD5D9 !important;
         margin: 4px 0 0 0 !important;
+        padding: 0 !important;
         line-height: 1.2;
-        text-align: center;
     }
-    @media (max-width: 480px) {
-        .logo-mppa { width: 48px !important; height: 48px !important; }
-        .cabecalho-mppa { gap: 12px; padding: 12px 14px !important; }
+    @media (max-width: 640px) {
+        .cabecalho-mppa { height: 80px; }
+        .cel-logo-mppa { width: 62px; padding-left: 10px; }
+        .cel-texto-mppa { padding: 6px 10px 6px 0; }
+        .logo-mppa { width: 46px !important; height: 46px !important; }
     }
     .stTabs [data-baseweb="tab-list"] {
         overflow-x: auto;
@@ -116,9 +119,9 @@ st.markdown(
 )
 
 def _logo_base64():
-    """Procura ciia.png (ou .jpg/.jpeg) na pasta e devolve tag <img> em base64."""
+    """Procura a logo na pasta e devolve tag <img> em base64."""
     import base64
-    for nome in ("ciia.png", "ciia.jpg", "ciia.jpeg"):
+    for nome in ("ciia.png", "logo.png", "ciia.jpg", "logo.jpg", "logo.jpeg"):
         arq = PASTA / nome
         if arq.exists():
             mime = "png" if nome.endswith("png") else "jpeg"
@@ -129,8 +132,8 @@ def _logo_base64():
 
 st.markdown(
     '<div class="cabecalho-mppa">'
-    + _logo_base64() +
-    '<div class="textos-mppa">'
+    '<div class="cel-logo-mppa">' + _logo_base64() + '</div>'
+    '<div class="cel-texto-mppa">'
     '<p class="titulo-mppa">Comitê de Inovação e Inteligência Artificial do MPPA</p>'
     '<p class="subtitulo-mppa">Estatística de uso do Microsoft Copilot</p>'
     '</div>'
