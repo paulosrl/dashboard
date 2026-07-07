@@ -66,6 +66,10 @@ st.markdown(
     [data-testid="stMetricValue"] { font-size: clamp(1.1rem, 3vw, 1.6rem); }
     [data-testid="stMetricLabel"] { font-size: clamp(0.7rem, 2vw, 0.85rem); }
     div.block-container { padding-top: 1.5rem; }
+    /* Esconde a barra fixa nativa do Streamlit (menu/Deploy): sobrepunha o topo
+       do cabeçalho próprio, cortando o box vermelho e quebrando a centralização. */
+    [data-testid="stHeader"] { height: 0; min-height: 0; }
+    [data-testid="stToolbar"] { display: none; }
     </style>
     """,
     unsafe_allow_html=True,
