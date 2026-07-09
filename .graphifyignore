@@ -1,0 +1,5 @@
+.agents/
+.claude/
+graphify-out/
+*.csv
+*.csv:Zone.Identifier
