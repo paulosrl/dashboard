@@ -508,6 +508,7 @@ with abas[4]:
         "Edge": "Last activity date of Edge (UTC)",
         "Agentes": "Last activity date of Copilot Agent (UTC)",
     }
+    APPS_M365 = {k: v for k, v in APPS_M365.items() if v in df0.columns}
 
     with st.expander("🔎 Filtros", expanded=False):
         f1, f2 = st.columns(2)
