@@ -292,6 +292,9 @@ with abas[0]:
         c3.metric("Usuários ativos (licenciados)", fmt(df["Usuários ativos (licenciados)"].sum()))
         c4.metric("Usuários ativos (não licenc.)", fmt(df["Usuários ativos (não licenciados)"].sum()))
 
+        df_sorted = df.sort_values(by="Respostas enviadas aos usuários", ascending=False)
+        tabela(df_sorted, "agentes")
+
         top = (df.nlargest(15, "Respostas enviadas aos usuários")
                  [["Nome do agente", "Respostas enviadas aos usuários"]])
         st.plotly_chart(
@@ -306,8 +309,6 @@ with abas[0]:
                      color_discrete_sequence=CORES)
         fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=340, title_font_size=15)
         st.plotly_chart(fig, width="stretch")
-
-        tabela(df, "agentes")
 
 # ======================= ABA 2: usuarios-e-agentes.csv ======================
 with abas[1]:
@@ -341,6 +342,9 @@ with abas[1]:
         c2.metric("Usuários distintos", fmt(df["Nome de usuário"].nunique()))
         c3.metric("Agentes distintos", fmt(df["Nome do agente"].nunique()))
 
+        df_sorted = df.sort_values(by="Respostas enviadas aos usuários", ascending=False)
+        tabela(df_sorted, "usuarios_agentes")
+
         top_ag = (df.groupby("Nome do agente")["Respostas enviadas aos usuários"]
                     .sum().nlargest(15).reset_index())
         st.plotly_chart(
@@ -354,8 +358,6 @@ with abas[1]:
             grafico_barras(top_us, "Respostas enviadas aos usuários", "Nome de usuário",
                            "Top 15 usuários por respostas recebidas", cor=COR_SECUNDARIA),
             width="stretch")
-
-        tabela(df, "usuarios_agentes")
 
 # ===================== ABA 3: usuarios-uso-agentes.csv ======================
 with abas[2]:
@@ -391,6 +393,9 @@ with abas[2]:
         c2.metric("Respostas recebidas (total)", fmt(df["Respostas de agente recebidas"].sum()))
         c3.metric("Média de agentes por usuário", f'{df["Número de agentes usados"].mean():.1f}')
 
+        df_sorted = df.sort_values(by="Respostas de agente recebidas", ascending=False)
+        tabela(df_sorted, "uso_por_usuario")
+
         top = (df.nlargest(15, "Respostas de agente recebidas")
                  [["Nome de exibição", "Respostas de agente recebidas"]])
         st.plotly_chart(
@@ -406,8 +411,6 @@ with abas[2]:
         fig.update_traces(marker_color=COR_SECUNDARIA)
         fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=340, title_font_size=15)
         st.plotly_chart(fig, width="stretch")
-
-        tabela(df, "uso_por_usuario")
 
 # ========================= ABA 4: uso-copilot-chat.csv ======================
 with abas[3]:
@@ -460,6 +463,9 @@ with abas[3]:
         c3.metric("Prompts enviados", fmt(df["Prompts submitted"].sum()))
         c4.metric("Média de dias ativos", f'{df["Active usage days"].mean():.1f}')
 
+        df_sorted = df.sort_values(by="Prompts submitted", ascending=False)
+        tabela(df_sorted, "chat")
+
         top = df.nlargest(15, "Prompts submitted")[["Display name", "Prompts submitted"]]
         st.plotly_chart(
             grafico_barras(top, "Prompts submitted", "Display name",
@@ -485,8 +491,6 @@ with abas[3]:
             grafico_barras(uso_app, "Usuários com atividade", "Aplicativo",
                            "Usuários com atividade por aplicativo", cor=COR_SECUNDARIA),
             width="stretch")
-
-        tabela(df, "chat")
 
 # =========================== ABA 5: uso-copilot.csv =========================
 with abas[4]:
@@ -545,6 +549,9 @@ with abas[4]:
         c4.metric("Média de dias ativos",
                   f'{df["Active Usage Days for All Apps"].mean():.1f}')
 
+        df_sorted = df.sort_values(by="Prompts submitted for All Apps", ascending=False)
+        tabela(df_sorted, "copilot")
+
         top = df.nlargest(15, "Prompts submitted for All Apps")[
             ["Display Name", "Prompts submitted for All Apps"]]
         st.plotly_chart(
@@ -572,8 +579,6 @@ with abas[4]:
         fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=320,
                           title_font_size=15)
         st.plotly_chart(fig, width="stretch")
-
-        tabela(df, "copilot")
 
 st.divider()
 st.caption("Dados extraídos dos relatórios de uso do Microsoft Copilot.")
