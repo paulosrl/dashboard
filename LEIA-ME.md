@@ -34,11 +34,13 @@ uv run streamlit run dashboard.py
 
 | Arquivo | Aba |
 |---|---|
-| agentes.csv | 🤖 Agentes |
-| usuarios-e-agentes.csv | 👥 Usuários e Agentes |
-| usuarios-uso-agentes.csv | 📈 Uso de Agentes por Usuário |
-| uso-copilot-chat.csv | 💬 Copilot Chat |
-| uso-copilot.csv | 🧩 Copilot M365 |
+| 01-copilot-180dias.csv | 🧩 Copilot M365 |
+| 02-copilot-chat-180dias.csv | 💬 Copilot Chat |
+| 03-pesquisa-copilot-180.csv | 🔍 Pesquisa Copilot |
+| 04-agentes-usuarios-30.csv | 📈 Uso de Agentes por Usuário |
+| 05-agentes.csv | 🤖 Agentes |
+| 06-usuario-agentes.csv | 👥 Usuários e Agentes |
+
 
 ## Filtros
 
@@ -49,5 +51,5 @@ tabelas respondem aos filtros, e os dados filtrados podem ser baixados em CSV.
 
 ## Atualizar os dados
 
-Basta substituir os 5 arquivos CSV na pasta (mantendo os mesmos nomes) e
+Basta substituir os arquivos CSV na pasta `dados/` (mantendo os mesmos nomes) e
 recarregar a página (menu ⋮ → Rerun, ou tecla R).

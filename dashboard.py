@@ -12,7 +12,7 @@ Dashboard — Comitê de Inovação e Inteligência Artificial do MPPA
 Estatística de uso do Microsoft Copilot
 
 Execução (com uv):  uv run dashboard.py
-Os 5 arquivos CSV devem estar na mesma pasta deste script.
+Os arquivos CSV devem estar na pasta dados/ (ou na raiz do projeto).
 """
 
 import re
@@ -42,6 +42,7 @@ st.set_page_config(
 )
 
 PASTA = Path(__file__).parent
+PASTA_DADOS = PASTA / "dados"
 CORES = px.colors.qualitative.Set2
 COR_PRINCIPAL = "#6E0B18"  # vermelho escuro institucional
 COR_SECUNDARIA = "#1f6f8b"
@@ -75,19 +76,21 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
 def _logo_base64():
     """Procura a logo na pasta e devolve tag <img> em base64."""
     import base64
-    for nome in ("ciia.png", "logo.png", "ciia.jpg", "logo.jpg", "logo.jpeg"):
-        arq = PASTA / nome
-        if arq.exists():
-            mime = "png" if nome.endswith("png") else "jpeg"
-            b64 = base64.b64encode(arq.read_bytes()).decode()
-            return (
-                '<img class="logo-mppa" '
-                'style="width:64px;height:64px;object-fit:contain;display:block;margin:0;" '
-                f'src="data:image/{mime};base64,{b64}" alt="Logo CiiA/MPPA">'
-            )
+    for pasta_busca in (PASTA, PASTA_DADOS):
+        for nome in ("ciia.png", "logo.png", "ciia.jpg", "logo.jpg", "logo.jpeg"):
+            arq = pasta_busca / nome
+            if arq.exists():
+                mime = "png" if nome.endswith("png") else "jpeg"
+                b64 = base64.b64encode(arq.read_bytes()).decode()
+                return (
+                    '<img class="logo-mppa" '
+                    'style="width:64px;height:64px;object-fit:contain;display:block;margin:0;" '
+                    f'src="data:image/{mime};base64,{b64}" alt="Logo CiiA/MPPA">'
+                )
     return ""
 
 
@@ -144,39 +147,108 @@ def fmt(n):
     return f"{int(n):,}".replace(",", ".")
 
 
+def _localizar_arquivo(*nomes):
+    """Busca o arquivo na pasta dados/ ou na raiz do projeto."""
+    for pasta in (PASTA_DADOS, PASTA):
+        for nome in nomes:
+            caminho = pasta / nome
+            if caminho.exists():
+                return caminho
+    # Se não existir, retorna o primeiro caminho esperado dentro de dados/
+    return PASTA_DADOS / nomes[0]
+
+
 @st.cache_data(show_spinner="Carregando dados...")
 def carregar():
     dados = {}
 
-    df = pd.read_csv(PASTA / "agentes.csv", dtype=str)
-    for c in ["Usuários ativos (licenciados)", "Usuários ativos (não licenciados)",
-              "Respostas enviadas aos usuários"]:
-        df[c] = df[c].map(numero_ptbr)
-    df["Data da última atividade (UTC)"] = df["Data da última atividade (UTC)"].map(data_ptbr)
-    dados["agentes"] = df
-
-    df = pd.read_csv(PASTA / "usuarios-e-agentes.csv", dtype=str)
-    df["Respostas enviadas aos usuários"] = df["Respostas enviadas aos usuários"].map(numero_ptbr)
-    df["Data da última atividade (UTC)"] = df["Data da última atividade (UTC)"].map(data_ptbr)
-    dados["usuarios_agentes"] = df
-
-    df = pd.read_csv(PASTA / "usuarios-uso-agentes.csv", dtype=str)
-    for c in ["Número de agentes usados", "Respostas de agente recebidas"]:
-        df[c] = df[c].map(numero_ptbr)
-    df["Data da última atividade (UTC)"] = df["Data da última atividade (UTC)"].map(data_ptbr)
-    dados["uso_por_usuario"] = df
-
-    df = pd.read_csv(PASTA / "uso-copilot-chat.csv")
-    for c in df.columns:
-        if "date" in c.lower() or "Last activity" in c:
-            df[c] = pd.to_datetime(df[c], errors="coerce")
-    dados["chat"] = df
-
-    df = pd.read_csv(PASTA / "uso-copilot.csv")
+    # 1. Copilot M365 (01-copilot-180dias.csv / uso-copilot.csv)
+    arq_copilot = _localizar_arquivo("01-copilot-180dias.csv", "uso-copilot.csv")
+    df = pd.read_csv(arq_copilot)
     for c in df.columns:
         if "Date" in c or "date" in c.lower():
             df[c] = pd.to_datetime(df[c], errors="coerce")
     dados["copilot"] = df
+    dados["arq_copilot"] = arq_copilot.name
+
+    # 2. Copilot Chat (02-copilot-chat-180dias.csv / uso-copilot-chat.csv)
+    arq_chat = _localizar_arquivo("02-copilot-chat-180dias.csv", "uso-copilot-chat.csv")
+    df = pd.read_csv(arq_chat)
+    for c in df.columns:
+        if "date" in c.lower() or "Last activity" in c:
+            df[c] = pd.to_datetime(df[c], errors="coerce")
+    dados["chat"] = df
+    dados["arq_chat"] = arq_chat.name
+
+    # 3. Pesquisa Copilot (03-pesquisa-copilot-180.csv)
+    arq_pesquisa = _localizar_arquivo("03-pesquisa-copilot-180.csv", "pesquisa-copilot.csv")
+    if arq_pesquisa.exists():
+        linhas = arq_pesquisa.read_text(encoding="utf-8-sig").splitlines()
+        registros = []
+        for l in linhas[1:]:
+            l = l.strip()
+            if not l:
+                continue
+            partes = [p.strip() for p in l.split(",")]
+            if len(partes) >= 3:
+                user_id = partes[0]
+                name = partes[1]
+                try:
+                    total = int(partes[2])
+                except ValueError:
+                    total = 0
+                data_str = " ".join([p for p in partes[3:] if p])
+                registros.append({
+                    "User ID": user_id,
+                    "Display name": name,
+                    "Total searches": total,
+                    "Last activity date (UTC)": data_str,
+                })
+        df_pesq = pd.DataFrame(registros)
+        if not df_pesq.empty:
+            df_pesq["Last activity date (UTC)"] = pd.to_datetime(
+                df_pesq["Last activity date (UTC)"], errors="coerce"
+            )
+        dados["pesquisa"] = df_pesq
+        dados["arq_pesquisa"] = arq_pesquisa.name
+    else:
+        dados["pesquisa"] = pd.DataFrame(
+            columns=["User ID", "Display name", "Total searches", "Last activity date (UTC)"]
+        )
+        dados["arq_pesquisa"] = "03-pesquisa-copilot-180.csv"
+
+    # 4. Uso de Agentes por Usuário (04-agentes-usuarios-30.csv / usuarios-uso-agentes.csv)
+    arq_uso_usuario = _localizar_arquivo("04-agentes-usuarios-30.csv", "usuarios-uso-agentes.csv")
+    df = pd.read_csv(arq_uso_usuario, dtype=str)
+    for c in ["Número de agentes usados", "Respostas de agente recebidas"]:
+        if c in df.columns:
+            df[c] = df[c].map(numero_ptbr)
+    if "Data da última atividade (UTC)" in df.columns:
+        df["Data da última atividade (UTC)"] = df["Data da última atividade (UTC)"].map(data_ptbr)
+    dados["uso_por_usuario"] = df
+    dados["arq_uso_usuario"] = arq_uso_usuario.name
+
+    # 5. Agentes (05-agentes.csv / agentes.csv)
+    arq_agentes = _localizar_arquivo("05-agentes.csv", "agentes.csv")
+    df = pd.read_csv(arq_agentes, dtype=str)
+    for c in ["Usuários ativos (licenciados)", "Usuários ativos (não licenciados)",
+              "Respostas enviadas aos usuários"]:
+        if c in df.columns:
+            df[c] = df[c].map(numero_ptbr)
+    if "Data da última atividade (UTC)" in df.columns:
+        df["Data da última atividade (UTC)"] = df["Data da última atividade (UTC)"].map(data_ptbr)
+    dados["agentes"] = df
+    dados["arq_agentes"] = arq_agentes.name
+
+    # 6. Usuários e Agentes (06-usuario-agentes.csv / usuarios-e-agentes.csv)
+    arq_usuarios_agentes = _localizar_arquivo("06-usuario-agentes.csv", "usuarios-e-agentes.csv")
+    df = pd.read_csv(arq_usuarios_agentes, dtype=str)
+    if "Respostas enviadas aos usuários" in df.columns:
+        df["Respostas enviadas aos usuários"] = df["Respostas enviadas aos usuários"].map(numero_ptbr)
+    if "Data da última atividade (UTC)" in df.columns:
+        df["Data da última atividade (UTC)"] = df["Data da última atividade (UTC)"].map(data_ptbr)
+    dados["usuarios_agentes"] = df
+    dados["arq_usuarios_agentes"] = arq_usuarios_agentes.name
 
     return dados
 
@@ -240,263 +312,26 @@ def sem_dados(df):
 try:
     d = carregar()
 except FileNotFoundError as e:
-    st.error(f"Arquivo não encontrado: {e}. Coloque os 5 CSVs na mesma pasta do dashboard.py.")
+    st.error(f"Arquivo não encontrado: {e}. Verifique se os arquivos CSV estão na pasta 'dados/'.")
     st.stop()
 
 # ----------------------------------------------------------------------------
-# Abas — uma por arquivo
+# Abas — correspondentes aos arquivos numerados 01 a 06
 # ----------------------------------------------------------------------------
 abas = st.tabs([
+    "🧩 Copilot M365",
+    "💬 Copilot Chat",
+    "🔍 Pesquisa Copilot",
+    "📈 Uso de Agentes por Usuário",
     "🤖 Agentes",
     "👥 Usuários e Agentes",
-    "📈 Uso de Agentes por Usuário",
-    "💬 Copilot Chat",
-    "🧩 Copilot M365",
 ])
 
-# ============================== ABA 1: agentes.csv ==========================
+# ======================= ABA 1: 01-copilot-180dias.csv =======================
 with abas[0]:
-    df0 = d["agentes"]
-    st.subheader("Agentes disponíveis")
-    st.caption("Fonte: agentes.csv")
-
-    with st.expander("🔎 Filtros", expanded=False):
-        f1, f2 = st.columns(2)
-        with f1:
-            tipos = sorted(df0["Tipo de criador"].dropna().unique())
-            sel_tipo = st.multiselect("Tipo de criador", tipos, default=[], key="ag_tipo",
-                                      placeholder="Todos")
-            nome = st.text_input("Nome do agente contém", key="ag_nome")
-        with f2:
-            max_resp = int(df0["Respostas enviadas aos usuários"].max())
-            min_resp = st.number_input("Mínimo de respostas enviadas", 0, max_resp, 0,
-                                       key="ag_minresp")
-            so_ativos = st.checkbox("Somente agentes com usuários ativos", key="ag_ativos")
-        df0f = df0.copy()
-        if sel_tipo:
-            df0f = df0f[df0f["Tipo de criador"].isin(sel_tipo)]
-        if nome:
-            df0f = df0f[df0f["Nome do agente"].str.contains(nome, case=False, na=False)]
-        if min_resp > 0:
-            df0f = df0f[df0f["Respostas enviadas aos usuários"] >= min_resp]
-        if so_ativos:
-            df0f = df0f[(df0f["Usuários ativos (licenciados)"]
-                         + df0f["Usuários ativos (não licenciados)"]) > 0]
-        df0f = filtro_periodo(df0f, "Data da última atividade (UTC)", "ag_periodo")
-
-    df = df0f
-    if not sem_dados(df):
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Agentes", fmt(len(df)))
-        c2.metric("Respostas enviadas", fmt(df["Respostas enviadas aos usuários"].sum()))
-        c3.metric("Usuários ativos (licenciados)", fmt(df["Usuários ativos (licenciados)"].sum()))
-        c4.metric("Usuários ativos (não licenc.)", fmt(df["Usuários ativos (não licenciados)"].sum()))
-
-        df_sorted = df.sort_values(by="Respostas enviadas aos usuários", ascending=False)
-        tabela(df_sorted, "agentes")
-
-        top = (df.nlargest(15, "Respostas enviadas aos usuários")
-                 [["Nome do agente", "Respostas enviadas aos usuários"]])
-        st.plotly_chart(
-            grafico_barras(top, "Respostas enviadas aos usuários", "Nome do agente",
-                           "Top 15 agentes por respostas enviadas"),
-            width="stretch")
-
-        tipo = df["Tipo de criador"].value_counts().reset_index()
-        tipo.columns = ["Tipo de criador", "Quantidade"]
-        fig = px.pie(tipo, values="Quantidade", names="Tipo de criador",
-                     title="Agentes por tipo de criador", hole=0.45,
-                     color_discrete_sequence=CORES)
-        fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=340, title_font_size=15)
-        st.plotly_chart(fig, width="stretch")
-
-# ======================= ABA 2: usuarios-e-agentes.csv ======================
-with abas[1]:
-    df0 = d["usuarios_agentes"]
-    st.subheader("Relação usuários × agentes")
-    st.caption("Fonte: usuarios-e-agentes.csv")
-
-    with st.expander("🔎 Filtros", expanded=False):
-        f1, f2 = st.columns(2)
-        with f1:
-            agentes_lista = sorted(df0["Nome do agente"].dropna().unique())
-            sel_ag = st.multiselect("Agente", agentes_lista, default=[], key="ua_agente",
-                                    placeholder="Todos")
-            usuario = st.text_input("Usuário (e-mail) contém", key="ua_usuario")
-        with f2:
-            max_r = int(df0["Respostas enviadas aos usuários"].max())
-            min_r = st.number_input("Mínimo de respostas", 0, max_r, 0, key="ua_minresp")
-        df0f = df0.copy()
-        if sel_ag:
-            df0f = df0f[df0f["Nome do agente"].isin(sel_ag)]
-        if usuario:
-            df0f = df0f[df0f["Nome de usuário"].str.contains(usuario, case=False, na=False)]
-        if min_r > 0:
-            df0f = df0f[df0f["Respostas enviadas aos usuários"] >= min_r]
-        df0f = filtro_periodo(df0f, "Data da última atividade (UTC)", "ua_periodo")
-
-    df = df0f
-    if not sem_dados(df):
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Pares usuário-agente", fmt(len(df)))
-        c2.metric("Usuários distintos", fmt(df["Nome de usuário"].nunique()))
-        c3.metric("Agentes distintos", fmt(df["Nome do agente"].nunique()))
-
-        df_sorted = df.sort_values(by="Respostas enviadas aos usuários", ascending=False)
-        tabela(df_sorted, "usuarios_agentes")
-
-        top_ag = (df.groupby("Nome do agente")["Respostas enviadas aos usuários"]
-                    .sum().nlargest(15).reset_index())
-        st.plotly_chart(
-            grafico_barras(top_ag, "Respostas enviadas aos usuários", "Nome do agente",
-                           "Top 15 agentes por respostas"),
-            width="stretch")
-
-        top_us = (df.groupby("Nome de usuário")["Respostas enviadas aos usuários"]
-                    .sum().nlargest(15).reset_index())
-        st.plotly_chart(
-            grafico_barras(top_us, "Respostas enviadas aos usuários", "Nome de usuário",
-                           "Top 15 usuários por respostas recebidas", cor=COR_SECUNDARIA),
-            width="stretch")
-
-# ===================== ABA 3: usuarios-uso-agentes.csv ======================
-with abas[2]:
-    df0 = d["uso_por_usuario"]
-    st.subheader("Uso de agentes por usuário")
-    st.caption("Fonte: usuarios-uso-agentes.csv")
-
-    with st.expander("🔎 Filtros", expanded=False):
-        f1, f2 = st.columns(2)
-        with f1:
-            usuario = st.text_input("Usuário (nome ou e-mail) contém", key="uu_usuario")
-            max_n = int(df0["Número de agentes usados"].max())
-            faixa_ag = st.slider("Número de agentes usados", 1, max_n, (1, max_n),
-                                 key="uu_nagentes")
-        with f2:
-            max_r = int(df0["Respostas de agente recebidas"].max())
-            min_r = st.number_input("Mínimo de respostas recebidas", 0, max_r, 0,
-                                    key="uu_minresp")
-        df0f = df0.copy()
-        if usuario:
-            m = (df0f["Nome de usuário"].str.contains(usuario, case=False, na=False)
-                 | df0f["Nome de exibição"].str.contains(usuario, case=False, na=False))
-            df0f = df0f[m]
-        df0f = df0f[df0f["Número de agentes usados"].between(*faixa_ag)]
-        if min_r > 0:
-            df0f = df0f[df0f["Respostas de agente recebidas"] >= min_r]
-        df0f = filtro_periodo(df0f, "Data da última atividade (UTC)", "uu_periodo")
-
-    df = df0f
-    if not sem_dados(df):
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Usuários", fmt(len(df)))
-        c2.metric("Respostas recebidas (total)", fmt(df["Respostas de agente recebidas"].sum()))
-        c3.metric("Média de agentes por usuário", f'{df["Número de agentes usados"].mean():.1f}')
-
-        df_sorted = df.sort_values(by="Respostas de agente recebidas", ascending=False)
-        tabela(df_sorted, "uso_por_usuario")
-
-        top = (df.nlargest(15, "Respostas de agente recebidas")
-                 [["Nome de exibição", "Respostas de agente recebidas"]])
-        st.plotly_chart(
-            grafico_barras(top, "Respostas de agente recebidas", "Nome de exibição",
-                           "Top 15 usuários por respostas de agente recebidas"),
-            width="stretch")
-
-        dist = df["Número de agentes usados"].value_counts().sort_index().reset_index()
-        dist.columns = ["Número de agentes usados", "Usuários"]
-        fig = px.bar(dist, x="Número de agentes usados", y="Usuários",
-                     title="Distribuição: quantos agentes cada usuário utiliza",
-                     text_auto=True)
-        fig.update_traces(marker_color=COR_SECUNDARIA)
-        fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=340, title_font_size=15)
-        st.plotly_chart(fig, width="stretch")
-
-# ========================= ABA 4: uso-copilot-chat.csv ======================
-with abas[3]:
-    df0 = d["chat"]
-    st.subheader("Uso do Copilot Chat")
-    st.caption("Fonte: uso-copilot-chat.csv · Período do relatório: 180 dias")
-
-    APPS_CHAT = {
-        "M365 Copilot (app)": "Last activity date of Microsoft 365 Copilot (app) (UTC)",
-        "Word": "Last activity date of Word (UTC)",
-        "Excel": "Last activity date of Excel (UTC)",
-        "PowerPoint": "Last activity date of PowerPoint (UTC)",
-        "OneNote": "Last activity date of OneNote (UTC)",
-        "Edge": "Last activity date of Edge (UTC)",
-        "Teams": "Last activity date of Teams (UTC)",
-        "Outlook": "Last activity date of Outlook (UTC)",
-        "Copilot Web": "Last activity date of Copilot.cloud.microsoft (UTC)",
-    }
-
-    with st.expander("🔎 Filtros", expanded=False):
-        f1, f2 = st.columns(2)
-        with f1:
-            usuario = st.text_input("Usuário (nome ou e-mail) contém", key="ch_usuario")
-            min_p = st.number_input("Mínimo de prompts enviados", 0,
-                                    int(df0["Prompts submitted"].max()), 0, key="ch_minp")
-        with f2:
-            max_d = int(df0["Active usage days"].max())
-            faixa_dias = st.slider("Dias de uso ativo", 0, max_d, (0, max_d), key="ch_dias")
-            sel_apps = st.multiselect("Com atividade no aplicativo",
-                                      list(APPS_CHAT.keys()), default=[],
-                                      key="ch_apps", placeholder="Qualquer")
-        df0f = df0.copy()
-        if usuario:
-            m = (df0f["Display name"].str.contains(usuario, case=False, na=False)
-                 | df0f["User principal name"].str.contains(usuario, case=False, na=False))
-            df0f = df0f[m]
-        if min_p > 0:
-            df0f = df0f[df0f["Prompts submitted"] >= min_p]
-        df0f = df0f[df0f["Active usage days"].between(*faixa_dias)]
-        for app in sel_apps:
-            df0f = df0f[df0f[APPS_CHAT[app]].notna()]
-        df0f = filtro_periodo(df0f, "Last activity date", "ch_periodo")
-
-    df = df0f
-    if not sem_dados(df):
-        ativos = df[df["Prompts submitted"] > 0]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Usuários", fmt(len(df)))
-        c2.metric("Com atividade", fmt(len(ativos)))
-        c3.metric("Prompts enviados", fmt(df["Prompts submitted"].sum()))
-        c4.metric("Média de dias ativos", f'{df["Active usage days"].mean():.1f}')
-
-        df_sorted = df.sort_values(by="Prompts submitted", ascending=False)
-        tabela(df_sorted, "chat")
-
-        top = df.nlargest(15, "Prompts submitted")[["Display name", "Prompts submitted"]]
-        st.plotly_chart(
-            grafico_barras(top, "Prompts submitted", "Display name",
-                           "Top 15 usuários por prompts enviados"),
-            width="stretch")
-
-        atv = df.dropna(subset=["Last activity date"]).copy()
-        if not atv.empty:
-            atv["Mês"] = atv["Last activity date"].dt.to_period("M").astype(str)
-            mensal = atv.groupby("Mês").size().reset_index(name="Usuários")
-            fig = px.line(mensal, x="Mês", y="Usuários", markers=True,
-                          title="Usuários por mês de última atividade")
-            fig.update_traces(line_color=COR_PRINCIPAL)
-            fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=340,
-                              title_font_size=15)
-            st.plotly_chart(fig, width="stretch")
-
-        uso_app = pd.DataFrame({
-            "Aplicativo": list(APPS_CHAT.keys()),
-            "Usuários com atividade": [df[c].notna().sum() for c in APPS_CHAT.values()],
-        }).sort_values("Usuários com atividade", ascending=False)
-        st.plotly_chart(
-            grafico_barras(uso_app, "Usuários com atividade", "Aplicativo",
-                           "Usuários com atividade por aplicativo", cor=COR_SECUNDARIA),
-            width="stretch")
-
-# =========================== ABA 5: uso-copilot.csv =========================
-with abas[4]:
     df0 = d["copilot"]
     st.subheader("Uso do Microsoft 365 Copilot (licenciados)")
-    st.caption("Fonte: uso-copilot.csv · Período do relatório: 180 dias")
+    st.caption(f"Fonte: {d.get('arq_copilot', '01-copilot-180dias.csv')} · Período do relatório: 180 dias")
 
     APPS_M365 = {
         "Copilot Chat (trabalho)": "Last activity date of Copilot Chat (work) (UTC)",
@@ -518,11 +353,12 @@ with abas[4]:
         f1, f2 = st.columns(2)
         with f1:
             usuario = st.text_input("Usuário (nome ou e-mail) contém", key="cp_usuario")
+            max_p_val = int(df0["Prompts submitted for All Apps"].max()) if not df0.empty and df0["Prompts submitted for All Apps"].max() > 0 else 10
             min_p = st.number_input("Mínimo de prompts (todos os apps)", 0,
-                                    int(df0["Prompts submitted for All Apps"].max()), 0,
+                                    max_p_val, 0,
                                     key="cp_minp")
         with f2:
-            max_d = int(df0["Active Usage Days for All Apps"].max())
+            max_d = int(df0["Active Usage Days for All Apps"].max()) if not df0.empty and df0["Active Usage Days for All Apps"].max() > 0 else 180
             faixa_dias = st.slider("Dias de uso ativo", 0, max_d, (0, max_d), key="cp_dias")
             sel_apps = st.multiselect("Com atividade no aplicativo",
                                       list(APPS_M365.keys()), default=[],
@@ -579,6 +415,300 @@ with abas[4]:
         fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=320,
                           title_font_size=15)
         st.plotly_chart(fig, width="stretch")
+
+# ======================= ABA 2: 02-copilot-chat-180dias.csv ==================
+with abas[1]:
+    df0 = d["chat"]
+    st.subheader("Uso do Copilot Chat")
+    st.caption(f"Fonte: {d.get('arq_chat', '02-copilot-chat-180dias.csv')} · Período do relatório: 180 dias")
+
+    APPS_CHAT = {
+        "M365 Copilot (app)": "Last activity date of Microsoft 365 Copilot (app) (UTC)",
+        "Word": "Last activity date of Word (UTC)",
+        "Excel": "Last activity date of Excel (UTC)",
+        "PowerPoint": "Last activity date of PowerPoint (UTC)",
+        "OneNote": "Last activity date of OneNote (UTC)",
+        "Edge": "Last activity date of Edge (UTC)",
+        "Teams": "Last activity date of Teams (UTC)",
+        "Outlook": "Last activity date of Outlook (UTC)",
+        "Copilot Web": "Last activity date of Copilot.cloud.microsoft (UTC)",
+    }
+
+    with st.expander("🔎 Filtros", expanded=False):
+        f1, f2 = st.columns(2)
+        with f1:
+            usuario = st.text_input("Usuário (nome ou e-mail) contém", key="ch_usuario")
+            max_p_chat = int(df0["Prompts submitted"].max()) if not df0.empty and df0["Prompts submitted"].max() > 0 else 10
+            min_p = st.number_input("Mínimo de prompts enviados", 0,
+                                    max_p_chat, 0, key="ch_minp")
+        with f2:
+            max_d = int(df0["Active usage days"].max()) if not df0.empty and df0["Active usage days"].max() > 0 else 180
+            faixa_dias = st.slider("Dias de uso ativo", 0, max_d, (0, max_d), key="ch_dias")
+            sel_apps = st.multiselect("Com atividade no aplicativo",
+                                      list(APPS_CHAT.keys()), default=[],
+                                      key="ch_apps", placeholder="Qualquer")
+        df0f = df0.copy()
+        if usuario:
+            m = (df0f["Display name"].str.contains(usuario, case=False, na=False)
+                 | df0f["User principal name"].str.contains(usuario, case=False, na=False))
+            df0f = df0f[m]
+        if min_p > 0:
+            df0f = df0f[df0f["Prompts submitted"] >= min_p]
+        df0f = df0f[df0f["Active usage days"].between(*faixa_dias)]
+        for app in sel_apps:
+            if app in APPS_CHAT and APPS_CHAT[app] in df0f.columns:
+                df0f = df0f[df0f[APPS_CHAT[app]].notna()]
+        df0f = filtro_periodo(df0f, "Last activity date", "ch_periodo")
+
+    df = df0f
+    if not sem_dados(df):
+        ativos = df[df["Prompts submitted"] > 0]
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Usuários", fmt(len(df)))
+        c2.metric("Com atividade", fmt(len(ativos)))
+        c3.metric("Prompts enviados", fmt(df["Prompts submitted"].sum()))
+        c4.metric("Média de dias ativos", f'{df["Active usage days"].mean():.1f}')
+
+        df_sorted = df.sort_values(by="Prompts submitted", ascending=False)
+        tabela(df_sorted, "chat")
+
+        top = df.nlargest(15, "Prompts submitted")[["Display name", "Prompts submitted"]]
+        st.plotly_chart(
+            grafico_barras(top, "Prompts submitted", "Display name",
+                           "Top 15 usuários por prompts enviados"),
+            width="stretch")
+
+        atv = df.dropna(subset=["Last activity date"]).copy()
+        if not atv.empty:
+            atv["Mês"] = atv["Last activity date"].dt.to_period("M").astype(str)
+            mensal = atv.groupby("Mês").size().reset_index(name="Usuários")
+            fig = px.line(mensal, x="Mês", y="Usuários", markers=True,
+                          title="Usuários por mês de última atividade")
+            fig.update_traces(line_color=COR_PRINCIPAL)
+            fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=340,
+                              title_font_size=15)
+            st.plotly_chart(fig, width="stretch")
+
+        uso_app = pd.DataFrame({
+            "Aplicativo": list(APPS_CHAT.keys()),
+            "Usuários com atividade": [
+                df[c].notna().sum() for c in APPS_CHAT.values() if c in df.columns
+            ],
+        }).sort_values("Usuários com atividade", ascending=False)
+        st.plotly_chart(
+            grafico_barras(uso_app, "Usuários com atividade", "Aplicativo",
+                           "Usuários com atividade por aplicativo", cor=COR_SECUNDARIA),
+            width="stretch")
+
+# ==================== ABA 3: 03-pesquisa-copilot-180.csv ====================
+with abas[2]:
+    df0 = d["pesquisa"]
+    st.subheader("Pesquisa no Copilot")
+    st.caption(f"Fonte: {d.get('arq_pesquisa', '03-pesquisa-copilot-180.csv')} · Período do relatório: 180 dias")
+
+    with st.expander("🔎 Filtros", expanded=False):
+        f1, f2 = st.columns(2)
+        with f1:
+            usuario = st.text_input("Usuário (nome ou e-mail) contém", key="pq_usuario")
+            max_s = int(df0["Total searches"].max()) if not df0.empty and df0["Total searches"].max() > 0 else 10
+            min_s = st.number_input("Mínimo de pesquisas", 0, max_s, 0, key="pq_minsearches")
+        with f2:
+            pass
+
+        df0f = df0.copy()
+        if usuario:
+            m = (df0f["Display name"].str.contains(usuario, case=False, na=False)
+                 | df0f["User ID"].str.contains(usuario, case=False, na=False))
+            df0f = df0f[m]
+        if min_s > 0:
+            df0f = df0f[df0f["Total searches"] >= min_s]
+        df0f = filtro_periodo(df0f, "Last activity date (UTC)", "pq_periodo")
+
+    df = df0f
+    if not sem_dados(df):
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Usuários pesquisadores", fmt(len(df)))
+        c2.metric("Total de pesquisas", fmt(df["Total searches"].sum()))
+        c3.metric("Média por usuário", f'{df["Total searches"].mean():.1f}')
+        c4.metric("Máximo por usuário", fmt(df["Total searches"].max()))
+
+        df_sorted = df.sort_values(by="Total searches", ascending=False)
+        tabela(df_sorted, "pesquisa")
+
+        top = df.nlargest(15, "Total searches")[["Display name", "Total searches"]]
+        st.plotly_chart(
+            grafico_barras(top, "Total searches", "Display name",
+                           "Top usuários por volume de pesquisas"),
+            width="stretch")
+
+        atv = df.dropna(subset=["Last activity date (UTC)"]).copy()
+        if not atv.empty:
+            atv["Mês"] = atv["Last activity date (UTC)"].dt.to_period("M").astype(str)
+            mensal = atv.groupby("Mês")["Total searches"].sum().reset_index(name="Pesquisas")
+            fig = px.bar(mensal, x="Mês", y="Pesquisas", text_auto=True,
+                         title="Volume de pesquisas por mês de última atividade")
+            fig.update_traces(marker_color=COR_PRINCIPAL)
+            fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=340,
+                              title_font_size=15)
+            st.plotly_chart(fig, width="stretch")
+
+# ================= ABA 4: 04-agentes-usuarios-30.csv ========================
+with abas[3]:
+    df0 = d["uso_por_usuario"]
+    st.subheader("Uso de agentes por usuário")
+    st.caption(f"Fonte: {d.get('arq_uso_usuario', '04-agentes-usuarios-30.csv')} · Período do relatório: 30 dias")
+
+    with st.expander("🔎 Filtros", expanded=False):
+        f1, f2 = st.columns(2)
+        with f1:
+            usuario = st.text_input("Usuário (nome ou e-mail) contém", key="uu_usuario")
+            max_n = int(df0["Número de agentes usados"].max()) if not df0.empty and df0["Número de agentes usados"].max() > 0 else 10
+            faixa_ag = st.slider("Número de agentes usados", 1, max_n, (1, max_n),
+                                 key="uu_nagentes")
+        with f2:
+            max_r = int(df0["Respostas de agente recebidas"].max()) if not df0.empty and df0["Respostas de agente recebidas"].max() > 0 else 10
+            min_r = st.number_input("Mínimo de respostas recebidas", 0, max_r, 0,
+                                    key="uu_minresp")
+        df0f = df0.copy()
+        if usuario:
+            m = (df0f["Nome de usuário"].str.contains(usuario, case=False, na=False)
+                 | df0f["Nome de exibição"].str.contains(usuario, case=False, na=False))
+            df0f = df0f[m]
+        df0f = df0f[df0f["Número de agentes usados"].between(*faixa_ag)]
+        if min_r > 0:
+            df0f = df0f[df0f["Respostas de agente recebidas"] >= min_r]
+        df0f = filtro_periodo(df0f, "Data da última atividade (UTC)", "uu_periodo")
+
+    df = df0f
+    if not sem_dados(df):
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Usuários", fmt(len(df)))
+        c2.metric("Respostas recebidas (total)", fmt(df["Respostas de agente recebidas"].sum()))
+        c3.metric("Média de agentes por usuário", f'{df["Número de agentes usados"].mean():.1f}')
+
+        df_sorted = df.sort_values(by="Respostas de agente recebidas", ascending=False)
+        tabela(df_sorted, "uso_por_usuario")
+
+        top = (df.nlargest(15, "Respostas de agente recebidas")
+                 [["Nome de exibição", "Respostas de agente recebidas"]])
+        st.plotly_chart(
+            grafico_barras(top, "Respostas de agente recebidas", "Nome de exibição",
+                           "Top 15 usuários por respostas de agente recebidas"),
+            width="stretch")
+
+        dist = df["Número de agentes usados"].value_counts().sort_index().reset_index()
+        dist.columns = ["Número de agentes usados", "Usuários"]
+        fig = px.bar(dist, x="Número de agentes usados", y="Usuários",
+                     title="Distribuição: quantos agentes cada usuário utiliza",
+                     text_auto=True)
+        fig.update_traces(marker_color=COR_SECUNDARIA)
+        fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=340, title_font_size=15)
+        st.plotly_chart(fig, width="stretch")
+
+# ============================== ABA 5: 05-agentes.csv =======================
+with abas[4]:
+    df0 = d["agentes"]
+    st.subheader("Agentes disponíveis")
+    st.caption(f"Fonte: {d.get('arq_agentes', '05-agentes.csv')}")
+
+    with st.expander("🔎 Filtros", expanded=False):
+        f1, f2 = st.columns(2)
+        with f1:
+            tipos = sorted(df0["Tipo de criador"].dropna().unique())
+            sel_tipo = st.multiselect("Tipo de criador", tipos, default=[], key="ag_tipo",
+                                      placeholder="Todos")
+            nome = st.text_input("Nome do agente contém", key="ag_nome")
+        with f2:
+            max_resp = int(df0["Respostas enviadas aos usuários"].max()) if not df0.empty and df0["Respostas enviadas aos usuários"].max() > 0 else 10
+            min_resp = st.number_input("Mínimo de respostas enviadas", 0, max_resp, 0,
+                                       key="ag_minresp")
+            so_ativos = st.checkbox("Somente agentes com usuários ativos", key="ag_ativos")
+        df0f = df0.copy()
+        if sel_tipo:
+            df0f = df0f[df0f["Tipo de criador"].isin(sel_tipo)]
+        if nome:
+            df0f = df0f[df0f["Nome do agente"].str.contains(nome, case=False, na=False)]
+        if min_resp > 0:
+            df0f = df0f[df0f["Respostas enviadas aos usuários"] >= min_resp]
+        if so_ativos:
+            df0f = df0f[(df0f["Usuários ativos (licenciados)"]
+                         + df0f["Usuários ativos (não licenciados)"]) > 0]
+        df0f = filtro_periodo(df0f, "Data da última atividade (UTC)", "ag_periodo")
+
+    df = df0f
+    if not sem_dados(df):
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Agentes", fmt(len(df)))
+        c2.metric("Respostas enviadas", fmt(df["Respostas enviadas aos usuários"].sum()))
+        c3.metric("Usuários ativos (licenciados)", fmt(df["Usuários ativos (licenciados)"].sum()))
+        c4.metric("Usuários ativos (não licenc.)", fmt(df["Usuários ativos (não licenciados)"].sum()))
+
+        df_sorted = df.sort_values(by="Respostas enviadas aos usuários", ascending=False)
+        tabela(df_sorted, "agentes")
+
+        top = (df.nlargest(15, "Respostas enviadas aos usuários")
+                 [["Nome do agente", "Respostas enviadas aos usuários"]])
+        st.plotly_chart(
+            grafico_barras(top, "Respostas enviadas aos usuários", "Nome do agente",
+                           "Top 15 agentes por respostas enviadas"),
+            width="stretch")
+
+        tipo = df["Tipo de criador"].value_counts().reset_index()
+        tipo.columns = ["Tipo de criador", "Quantidade"]
+        fig = px.pie(tipo, values="Quantidade", names="Tipo de criador",
+                     title="Agentes por tipo de criador", hole=0.45,
+                     color_discrete_sequence=CORES)
+        fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=340, title_font_size=15)
+        st.plotly_chart(fig, width="stretch")
+
+# ======================= ABA 6: 06-usuario-agentes.csv ======================
+with abas[5]:
+    df0 = d["usuarios_agentes"]
+    st.subheader("Relação usuários × agentes")
+    st.caption(f"Fonte: {d.get('arq_usuarios_agentes', '06-usuario-agentes.csv')}")
+
+    with st.expander("🔎 Filtros", expanded=False):
+        f1, f2 = st.columns(2)
+        with f1:
+            agentes_lista = sorted(df0["Nome do agente"].dropna().unique())
+            sel_ag = st.multiselect("Agente", agentes_lista, default=[], key="ua_agente",
+                                    placeholder="Todos")
+            usuario = st.text_input("Usuário (e-mail) contém", key="ua_usuario")
+        with f2:
+            max_r = int(df0["Respostas enviadas aos usuários"].max()) if not df0.empty and df0["Respostas enviadas aos usuários"].max() > 0 else 10
+            min_r = st.number_input("Mínimo de respostas", 0, max_r, 0, key="ua_minresp")
+        df0f = df0.copy()
+        if sel_ag:
+            df0f = df0f[df0f["Nome do agente"].isin(sel_ag)]
+        if usuario:
+            df0f = df0f[df0f["Nome de usuário"].str.contains(usuario, case=False, na=False)]
+        if min_r > 0:
+            df0f = df0f[df0f["Respostas enviadas aos usuários"] >= min_r]
+        df0f = filtro_periodo(df0f, "Data da última atividade (UTC)", "ua_periodo")
+
+    df = df0f
+    if not sem_dados(df):
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Pares usuário-agente", fmt(len(df)))
+        c2.metric("Usuários distintos", fmt(df["Nome de usuário"].nunique()))
+        c3.metric("Agentes distintos", fmt(df["Nome do agente"].nunique()))
+
+        df_sorted = df.sort_values(by="Respostas enviadas aos usuários", ascending=False)
+        tabela(df_sorted, "usuarios_agentes")
+
+        top_ag = (df.groupby("Nome do agente")["Respostas enviadas aos usuários"]
+                    .sum().nlargest(15).reset_index())
+        st.plotly_chart(
+            grafico_barras(top_ag, "Respostas enviadas aos usuários", "Nome do agente",
+                           "Top 15 agentes por respostas"),
+            width="stretch")
+
+        top_us = (df.groupby("Nome de usuário")["Respostas enviadas aos usuários"]
+                    .sum().nlargest(15).reset_index())
+        st.plotly_chart(
+            grafico_barras(top_us, "Respostas enviadas aos usuários", "Nome de usuário",
+                           "Top 15 usuários por respostas recebidas", cor=COR_SECUNDARIA),
+            width="stretch")
 
 st.divider()
 st.caption("Dados extraídos dos relatórios de uso do Microsoft Copilot.")
